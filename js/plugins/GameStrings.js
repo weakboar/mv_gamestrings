@@ -11,11 +11,6 @@
  */
 
 (function () {
-    // GameStrings.jsonロード
-    DataManager._databaseFiles.push(
-        { name: '$gameStrings', src: 'GameStrings.json' }
-    );
-
     // サンプル用言語切替コマンド
     var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand
     Game_Interpreter.prototype.pluginCommand = function (command, args) {
@@ -41,7 +36,7 @@ Game_Interpreter.prototype.command101 = function () {
         while (this.nextEventCode() === 401) {  // Text data
             this._index++;
             var message = this.currentCommand().parameters[0];
-            $gameMessage.add(GameStrings.Format(message));
+            $gameMessage.add(GameStrings.GetText(message));
         }
         switch (this.nextEventCode()) {
             case 102:  // Show Choices
@@ -68,26 +63,66 @@ function GameStrings() {
     throw new Error("This is a static class");
 }
 GameStrings.language = "jp";
-GameStrings.Format = function (key) {
+var $gameText = null;
+GameStrings.GetText = function (key) {
     // GameStrings.jsonをロードしてなかったらKeyをそのまま返す
-    if ($gameStrings == null) {
+    if ($gameText == null) {
         return key;
     }
-    // 探して見つかったら対応文字列を返す。
-    for (var i = 0; i < $gameStrings.length; i++) {
-        if ($gameStrings[i].key == key) {
-            var message = key;
-            switch (GameStrings.language) {
-                case "jp":
-                    message = $gameStrings[i].jp;
-                    break;
-                case "en":
-                    message = $gameStrings[i].en;
-                    break;
-            }
-            return message;
+    // Keyが存在したら対応文字列を返す。
+    if ($gameText[key]) {
+        var message = key;
+        switch (GameStrings.language) {
+            case "jp":
+                message = $gameText[key].jp;
+                break;
+            case "en":
+                message = $gameText[key].en;
+                break;
         }
+        return message;
     }
     // 見つからなかったらkeyをそのまま返す
     return key;
 }
+
+// Extend DataManager.
+DataManager.loadMapData = function(mapId) {
+    if (mapId > 0) {
+        var filename = 'Map%1.json'.format(mapId.padZero(3));
+        this._mapLoader = ResourceHandler.createLoader('data/' + filename, this.loadDataFile.bind(this, '$dataMap', filename));
+        this.loadDataFile('$dataMap', filename);
+
+        var mapName = DataManager.getMapName(mapId);
+        this.loadMapText(mapName);
+    } else {
+        this.makeEmptyMap();
+    }
+};
+
+DataManager.getMapName = function(mapId) {
+    var mapName;
+    for(var i=0; i < $dataMapInfos.length; i++) {
+        if ( !$dataMapInfos[i] ) {
+            continue;
+        }
+        if ( $dataMapInfos[i].id == mapId ) {
+            mapName = $dataMapInfos[i].name;
+        }
+    }
+    return mapName;
+}
+
+DataManager.loadMapText = function(mapName) {
+    if (mapName) {
+        var filename = "Translate/"+mapName+".json";
+        this.loadDataFile('$gameText', filename);
+    } else {
+        $gameText = {};
+    }
+};
+
+DataManager.isMapLoaded = function() {
+    this.checkError();
+    return !!$dataMap && !!$gameText;
+};
