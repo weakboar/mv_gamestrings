@@ -11,6 +11,11 @@
  */
 
 (function () {
+    // GameStrings.jsonロード
+    DataManager._databaseFiles.push(
+        { name: '$gameStrings', src: 'Translate/GameStrings.json' }
+    );
+
     // サンプル用言語切替コマンド
     var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand
     Game_Interpreter.prototype.pluginCommand = function (command, args) {
@@ -62,8 +67,35 @@ Game_Interpreter.prototype.command101 = function () {
 function GameStrings() {
     throw new Error("This is a static class");
 }
-GameStrings.language = "jp";
-var $gameText = null;
+
+GameStrings.language = "jp"; // 言語設定
+var $gameStrings = null; // ゲーム中恒常的に使う文言系。
+var $gameText = null; // map毎に必要な文言。
+
+// 文言取得。
+GameStrings.GetString = function (key) {
+    // GameStrings.jsonをロードしてなかったらKeyをそのまま返す
+    if ($gameStrings == null) {
+        return key;
+    }
+    // Keyが存在したら対応文字列を返す。
+    if ($gameStrings[key]) {
+        var message = key;
+        switch (GameStrings.language) {
+            case "jp":
+                message = $gameStrings[key].jp;
+                break;
+            case "en":
+                message = $gameStrings[key].en;
+                break;
+        }
+        return message;
+    }
+    // 見つからなかったらkeyをそのまま返す
+    return key;
+}
+
+// マップに紐付いた文言を取得。主に文章。
 GameStrings.GetText = function (key) {
     // GameStrings.jsonをロードしてなかったらKeyをそのまま返す
     if ($gameText == null) {
@@ -125,4 +157,23 @@ DataManager.loadMapText = function(mapName) {
 DataManager.isMapLoaded = function() {
     this.checkError();
     return !!$dataMap && !!$gameText;
+};
+
+// Extend Window_MapName
+Window_MapName.prototype.refresh = function() {
+    this.contents.clear();
+    if ($gameMap.displayName()) {
+        var width = this.contentsWidth();
+        this.drawBackground(0, 0, width, this.lineHeight());
+        this.drawText(GameStrings.GetString($gameMap.displayName()), 0, 0, width, 'center');
+    }
+};
+
+// Extend Window_Command
+Window_Command.prototype.drawItem = function(index) {
+    var rect = this.itemRectForText(index);
+    var align = this.itemTextAlign();
+    this.resetTextColor();
+    this.changePaintOpacity(this.isCommandEnabled(index));
+    this.drawText(GameStrings.GetString(this.commandName(index)), rect.x, rect.y, rect.width, align);
 };
